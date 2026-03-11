@@ -1,0 +1,30 @@
+{
+  "manifest_version": 3,
+  "name": "RWeb Course2Cal",
+  "version": "1.0.0",
+  "description": "Extracts course information from RWeb and helps sync it to Google Calendar.",
+  "permissions": [
+    "activeTab",
+    "scripting"
+  ],
+  "host_permissions": [
+    "https://*.ucr.edu/*"
+  ],
+  "action": {
+    "default_title": "Scrape Courses",
+    "default_popup": "popup/popup.html"
+  },
+  "content_scripts": [
+    {
+      "matches": [
+        "https://registrationssb.ucr.edu/StudentRegistrationSsb/ssb/*"
+      ],
+      "js": [
+        "content/content.js"
+      ]
+    }
+  ],
+  "background": {
+    "service_worker": "background/background.js"
+  }
+}

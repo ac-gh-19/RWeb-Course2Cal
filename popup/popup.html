@@ -2,7 +2,8 @@
 <html>
 <head>
   <meta charset="UTF-8">
-  <title>RWeb Course2Cal</title>
+  <link rel="icon" type="image/png" href="../images/icon16.png">
+  <title>Course2Cal for RWeb</title>
   <style>
     body {
       font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;
@@ -95,11 +96,39 @@
     #confirmBtn:hover {
       background-color: #218838;
     }
+    #warning-container {
+      display: none;
+      background-color: #fff3cd;
+      border: 1px solid #ffeeba;
+      color: #856404;
+      padding: 12px;
+      border-radius: 4px;
+      margin-top: 10px;
+      font-size: 14px;
+      line-height: 1.5;
+    }
+    #warning-container a {
+      color: #0056b3;
+      text-decoration: underline;
+      font-weight: bold;
+    }
   </style>
 </head>
 <body>
-  <h2>RWeb Course2Cal</h2>
-  <button id="scrapeBtn">Scrape Courses</button>
+  <h2>Course2Cal for RWeb</h2>
+  
+  <div id="main-controls">
+    <button id="scrapeBtn">Scrape Courses</button>
+  </div>
+
+  <div id="warning-container">
+    To use this extension, please go to either 
+    <a href="https://registrationssb.ucr.edu/StudentRegistrationSsb/ssb/classRegistration/classRegistration" target="_blank">Register for Classes</a> 
+    or 
+    <a href="https://registrationssb.ucr.edu/StudentRegistrationSsb/ssb/registrationHistory/registrationHistory" target="_blank">View Your Class Schedule</a> 
+    in RWeb Registration.
+  </div>
+  
   <div id="status"></div>
   
   <div id="resultsContainer">

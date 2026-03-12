@@ -1,8 +1,8 @@
 {
   "manifest_version": 3,
-  "name": "RWeb Course2Cal",
+  "name": "Course2Cal for RWeb",
   "version": "1.0.0",
-  "description": "Extracts course information from RWeb and helps sync it to Google Calendar.",
+  "description": "Extracts course information from RWeb and syncs it to Google Calendar. This extension is not affiliated with or endorsed by UCR.",
   "permissions": [
     "activeTab",
     "scripting",
@@ -10,10 +10,20 @@
     "storage"
   ],
   "host_permissions": [
-    "https://*.ucr.edu/*",
+    "https://registrationssb.ucr.edu/*",
     "https://www.googleapis.com/*"
   ],
+  "icons": {
+    "16": "images/icon16.png",
+    "48": "images/icon48.png",
+    "128": "images/icon128.png"
+  },
   "action": {
+    "default_icon": {
+      "16": "images/icon16.png",
+      "48": "images/icon48.png",
+      "128": "images/icon128.png"
+    },
     "default_title": "Scrape Courses",
     "default_popup": "popup/popup.html"
   },

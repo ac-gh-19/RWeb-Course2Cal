@@ -2,7 +2,25 @@ document.addEventListener('DOMContentLoaded', async () => {
   const scrapeBtn = document.getElementById('scrapeBtn');
   const statusDiv = document.getElementById('status');
   const confirmBtn = document.getElementById('confirmBtn');
+  const warningContainer = document.getElementById('warning-container');
+  const mainControls = document.getElementById('main-controls');
   let currentCourses = [];
+
+  const ALLOWED_URLS = [
+    'https://registrationssb.ucr.edu/StudentRegistrationSsb/ssb/classRegistration/classRegistration',
+    'https://registrationssb.ucr.edu/StudentRegistrationSsb/ssb/registrationHistory/registrationHistory'
+  ];
+
+  // Check if current tab is allowed
+  let [tab] = await chrome.tabs.query({ active: true, currentWindow: true });
+  const isAllowedUrl = tab && ALLOWED_URLS.some(url => tab.url.startsWith(url));
+
+  if (!isAllowedUrl) {
+    if (mainControls) mainControls.style.display = 'none';
+    if (warningContainer) warningContainer.style.display = 'block';
+    if (statusDiv) statusDiv.style.display = 'none';
+    return; // Stop further execution
+  }
 
   // Check if sync was already clicked previously
   chrome.storage.local.get(['syncClicked'], (res) => {
@@ -107,10 +125,6 @@ document.addEventListener('DOMContentLoaded', async () => {
         statusDiv.textContent = `Synced ${status.created} events. ${status.failed.length} failed. First error: ${firstError}`;
       } else {
         statusDiv.textContent = `Successfully synced all ${status.created} events to your calendar!`;
-        const resultsContainer = document.getElementById('resultsContainer');
-        if (resultsContainer) {
-          resultsContainer.style.display = 'none';
-        }
       }
       chrome.storage.local.remove(['syncClicked']);
     }
@@ -153,7 +167,7 @@ document.addEventListener('DOMContentLoaded', async () => {
   });
 
   // Check if a scrape is already in progress
-  const [tab] = await chrome.tabs.query({ active: true, currentWindow: true });
+  [tab] = await chrome.tabs.query({ active: true, currentWindow: true });
   if (tab && tab.id) {
     chrome.tabs.sendMessage(tab.id, { action: 'check_status' }, (response) => {
       if (chrome.runtime.lastError) return;
@@ -183,7 +197,7 @@ document.addEventListener('DOMContentLoaded', async () => {
       
       updateUI(true);
 
-      const [tab] = await chrome.tabs.query({ active: true, currentWindow: true });
+      [tab] = await chrome.tabs.query({ active: true, currentWindow: true });
       chrome.tabs.sendMessage(tab.id, { action: 'scrape_data_attributes' }, (response) => {
         if (chrome.runtime.lastError) {
           updateUI(false, null, chrome.runtime.lastError.message);

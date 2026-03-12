@@ -40,7 +40,7 @@ document.addEventListener('DOMContentLoaded', async () => {
       statusDiv.textContent = 'Automated scraping in progress. Please wait...';
       document.getElementById('resultsContainer').style.display = 'none';
     } else if (data) {
-      console.log('Scraped Data:', data);
+      // console.log('Scraped Data:', data);
       statusDiv.textContent = `Success! Scraped ${data.length} courses. Please confirm below:`;
       if (scrapeBtn && scrapeBtn.parentNode) scrapeBtn.remove();
       renderCourses(data);
@@ -136,8 +136,6 @@ document.addEventListener('DOMContentLoaded', async () => {
       confirmBtn.disabled = true;
       confirmBtn.textContent = 'Starting Sync...';
       chrome.storage.local.set({ syncClicked: true });
-
-      console.log("Starting sync via background script...");
       statusDiv.textContent = `Authorizing and starting sync...`;
 
       chrome.runtime.sendMessage({ action: 'start_sync', courses: currentCourses }, (response) => {

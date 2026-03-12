@@ -148,5 +148,5 @@ chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
 });
 
 chrome.runtime.onInstalled.addListener(() => {
-  console.log('RWeb Course2Cal Extension installed');
+  // console.log('RWeb Course2Cal Extension installed');
 });

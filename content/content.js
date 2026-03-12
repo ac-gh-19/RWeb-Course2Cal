@@ -1,5 +1,5 @@
 // content/content.js
-console.log("Course2Cal content script loaded!");
+// console.log("Course2Cal content script loaded!");
 
 const sleep = (ms) => new Promise(resolve => setTimeout(resolve, ms));
 
@@ -127,8 +127,6 @@ async function startAutomatedScrape() {
     if (!container) throw new Error("Could not find course container on page.");
     const courseLinks = Array.from(container.querySelectorAll(selector));
 
-    console.log(`Starting scrape of ${courseLinks.length} potential courses...`);
-
     for (const link of courseLinks) {
       const courseIdentifier = link.getAttribute("data-attributes");
 
@@ -136,7 +134,7 @@ async function startAutomatedScrape() {
       if (!courseIdentifier || seen.has(courseIdentifier)) continue;
       seen.add(courseIdentifier);
 
-      console.log(`Scraping course identifier: ${courseIdentifier}`);
+      // console.log(`Scraping course identifier: ${courseIdentifier}`);
 
       // Open the course details modal
       link.click();
@@ -153,12 +151,10 @@ async function startAutomatedScrape() {
       };
 
       if (modal) {
-        console.log("Course details modal found. Searching for content...");
-
         // Try searching inside the modal first, then globally as a fallback
         let classDetails = modal.querySelector("#classDetailsContentDetailsDiv");
         if (!classDetails) {
-            console.log("Details not in modal tree, trying global search...");
+            // console.log("Details not in modal tree, trying global search...");
             classDetails = document.getElementById("classDetailsContentDetailsDiv");
         }
 
@@ -183,15 +179,12 @@ async function startAutomatedScrape() {
           // Click on the "Instructor/Meeting Times" tab
           const meetingTimesTab = modal.querySelector("#facultyMeetingTimes a") || document.querySelector("#facultyMeetingTimes a");
           if (meetingTimesTab) {
-            console.log("Found Meeting Times tab, clicking...");
             meetingTimesTab.click();
             // Wait for tab content to load
             await sleep(1000);
 
             const meetingContainer = modal.querySelector(".meetingTimesContainer");
             if (meetingContainer) {
-              console.log("Meeting times container found, scraping...");
-
               // Get Meeting Dates
               const datesDiv = meetingContainer.querySelector(".left .dates");
               if (datesDiv) {
@@ -266,6 +259,6 @@ async function startAutomatedScrape() {
   }
 
   lastResults = allCourseData;
-  console.log("Scrape complete!", allCourseData);
+  // console.log("Scrape complete!", allCourseData);
   return allCourseData;
 }

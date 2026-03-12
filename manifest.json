@@ -1,11 +1,10 @@
 {
   "manifest_version": 3,
   "name": "Course2Cal for RWeb",
-  "version": "1.1.0",
+  "version": "1.1.1",
   "description": "Extracts course information from RWeb and syncs it to Google Calendar. This extension is not affiliated with or endorsed by UCR.",
   "permissions": [
     "activeTab",
-    "scripting",
     "identity",
     "storage"
   ],

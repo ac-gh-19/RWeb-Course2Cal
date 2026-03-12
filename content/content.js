@@ -14,13 +14,13 @@ chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
       sendResponse({ success: false, error: 'Scraping already in progress' });
       return;
     }
-    
+
     // We make this an async IIFE to use 'await'
     (async () => {
       try {
         // Broadcast that we've started
         chrome.runtime.sendMessage({ action: 'scraping_started' });
-        
+
         const results = await startAutomatedScrape();
         sendResponse({ success: true, data: results });
 
@@ -36,7 +36,7 @@ chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
     })();
     return true; // Keep channel open for async response
   }
-  
+
   if (request.action === 'check_status') {
     sendResponse({ isScraping, data: lastResults });
     return false;
@@ -45,7 +45,7 @@ chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
 
 function showOverlay() {
   if (document.getElementById("scraping-overlay")) return;
-  
+
   const overlay = document.createElement("div");
   overlay.id = "scraping-overlay";
   Object.assign(overlay.style, {
@@ -92,7 +92,7 @@ function showOverlay() {
     margin: "10px 0",
     textAlign: "center"
   });
-  
+
   const submessage = document.createElement("p");
   submessage.textContent = "We are automating navigation to gather your course details.";
   Object.assign(submessage.style, {
@@ -120,11 +120,11 @@ async function startAutomatedScrape() {
   showOverlay();
   const allCourseData = [];
   const seen = new Set();
-  
+
   try {
     const selector = ".section-details-link";
     const courseLinks = Array.from(document.getElementById("scheduleCalView").querySelectorAll(selector));
-    
+
     console.log(`Starting scrape of ${courseLinks.length} potential courses...`);
 
     for (const link of courseLinks) {
@@ -135,25 +135,31 @@ async function startAutomatedScrape() {
       seen.add(courseIdentifier);
 
       console.log(`Scraping course identifier: ${courseIdentifier}`);
-      
+
       // Open the course details modal
       link.click();
 
-      // Wait for the modal to appear (jQuery UI dialogs often have transition times)
-      await sleep(1000); 
+      // Increased wait for AJAX and animations
+      await sleep(1500);
 
-      // Select the modal - typically a .ui-dialog on this registration site
-      const modal = document.querySelector(".ui-dialog"); 
+      // Target specifically the course details modal among the multiple .ui-dialog elements
+      const modal = document.querySelector(".course-details-dialog") || 
+                    Array.from(document.querySelectorAll(".ui-dialog")).find(d => d.innerText.includes("Schedule Type"));
 
-      let courseData = { 
-        id: courseIdentifier 
+      let courseData = {
+        id: courseIdentifier
       };
 
       if (modal) {
-        console.log("Modal found, scraping details...");
+        console.log("Course details modal found. Searching for content...");
 
-        const classDetails = modal.querySelector("#classDetailsContentDetailsDiv");
-        
+        // Try searching inside the modal first, then globally as a fallback
+        let classDetails = modal.querySelector("#classDetailsContentDetailsDiv");
+        if (!classDetails) {
+            console.log("Details not in modal tree, trying global search...");
+            classDetails = document.getElementById("classDetailsContentDetailsDiv");
+        }
+
         if (classDetails) {
           // Extract basic details: Schedule Type
           const boldSpans = classDetails.querySelectorAll(".status-bold");
@@ -166,23 +172,24 @@ async function startAutomatedScrape() {
           });
 
           // Extract basic details: Course Title
-          const titleSpan = classDetails.querySelector("#courseTitle");
+          // Using ID search directly as it's more specific on this page
+          const titleSpan = classDetails.querySelector("#courseTitle") || document.getElementById("courseTitle");
           if (titleSpan) {
             courseData.courseTitle = titleSpan.textContent.trim();
           }
 
           // Click on the "Instructor/Meeting Times" tab
-          const meetingTimesTab = modal.querySelector("#facultyMeetingTimes a");
+          const meetingTimesTab = modal.querySelector("#facultyMeetingTimes a") || document.querySelector("#facultyMeetingTimes a");
           if (meetingTimesTab) {
             console.log("Found Meeting Times tab, clicking...");
             meetingTimesTab.click();
             // Wait for tab content to load
-            await sleep(1000); 
-            
+            await sleep(1000);
+
             const meetingContainer = modal.querySelector(".meetingTimesContainer");
             if (meetingContainer) {
               console.log("Meeting times container found, scraping...");
-              
+
               // Get Meeting Dates
               const datesDiv = meetingContainer.querySelector(".left .dates");
               if (datesDiv) {
@@ -203,7 +210,7 @@ async function startAutomatedScrape() {
                 if (timeDiv) {
                   const rawTime = timeDiv.textContent.replace(/\s+/g, ' ').trim();
                   const [startRaw, endRaw] = rawTime.split("-").map(t => t.trim());
-                  
+
                   // Helper to normalize "HH:mm AM/PM" to 24-hour "HH:mm"
                   const to24h = (timeStr) => {
                     if (!timeStr) return null;
@@ -224,13 +231,21 @@ async function startAutomatedScrape() {
                 // The second child div contains the physical location
                 const locationDiv = rightDiv.querySelector("div:nth-child(2)");
                 if (locationDiv) {
-                  courseData.location = locationDiv.textContent.replace(/\s+/g, ' ').trim();
+                  const fullLocation = locationDiv.textContent.replace(/\s+/g, ' ').trim();
+                  // Remove "RIVERSIDE CAMPUS | " if it exists by splitting at the first pipe
+                  const parts = fullLocation.split('|').map(s => s.trim());
+                  if (parts.length > 1) {
+                    // Joins everything after the first part (e.g., "Olmsted | Room 1208")
+                    courseData.location = parts.slice(1).join(' | ');
+                  } else {
+                    courseData.location = fullLocation;
+                  }
                 }
               }
             }
           }
         }
-        
+
         // Close the modal after scraping to clean up the UI for the next item
         const closeBtn = modal.querySelector(".ui-dialog-titlebar-close");
         if (closeBtn) {
@@ -247,7 +262,7 @@ async function startAutomatedScrape() {
     isScraping = false;
     hideOverlay();
   }
-  
+
   lastResults = allCourseData;
   console.log("Scrape complete!", allCourseData);
   return allCourseData;

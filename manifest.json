@@ -5,10 +5,12 @@
   "description": "Extracts course information from RWeb and helps sync it to Google Calendar.",
   "permissions": [
     "activeTab",
-    "scripting"
+    "scripting",
+    "identity"
   ],
   "host_permissions": [
-    "https://*.ucr.edu/*"
+    "https://*.ucr.edu/*",
+    "https://www.googleapis.com/*"
   ],
   "action": {
     "default_title": "Scrape Courses",
@@ -26,5 +28,11 @@
   ],
   "background": {
     "service_worker": "background/background.js"
+  },
+  "oauth2": {
+    "client_id": "1066934690725-m8ct6i0th3u18ou0vu1444l2mnud9vnn.apps.googleusercontent.com",
+    "scopes": [
+      "https://www.googleapis.com/auth/calendar.events"
+    ]
   }
 }

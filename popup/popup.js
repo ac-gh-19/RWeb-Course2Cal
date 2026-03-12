@@ -120,7 +120,7 @@ document.addEventListener('DOMContentLoaded', async () => {
         confirmBtn.remove();
       }
       if (status.failed && status.failed.length > 0) {
-        console.error("Some events failed to sync:", status.failed);
+        // console.error("Some events failed to sync:", status.failed);
         const firstError = status.failed[0].error || 'Unknown error';
         statusDiv.textContent = `Synced ${status.created} events. ${status.failed.length} failed. First error: ${firstError}`;
       } else {

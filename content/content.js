@@ -3,6 +3,22 @@
 
 const sleep = (ms) => new Promise(resolve => setTimeout(resolve, ms));
 
+/**
+ * Polls for a condition to be met.
+ * @param {Function} predicate - A function that returns a value when the condition is met.
+ * @param {number} timeout - Maximum time to wait in ms.
+ * @returns {Promise<any>} - The result of the predicate.
+ */
+async function waitFor(predicate, timeout = 5000) {
+  const start = Date.now();
+  while (Date.now() - start < timeout) {
+    const result = predicate();
+    if (result) return result;
+    await sleep(100);
+  }
+  return null;
+}
+
 let isScraping = false;
 let lastResults = null;
 
@@ -27,7 +43,7 @@ chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
         // Broadcast that we've finished successfully
         chrome.runtime.sendMessage({ action: 'scraping_finished', success: true, data: results });
       } catch (error) {
-        console.error("Scraping error:", error);
+        // Scraping error silenced for production
         sendResponse({ success: false, error: 'An error occurred during scraping. Please try again.' });
 
         // Broadcast the error
@@ -54,7 +70,7 @@ function showOverlay() {
     left: "0",
     width: "100%",
     height: "100%",
-    backgroundColor: "rgba(0, 0, 0, 0.7)",
+    backgroundColor: "rgba(0, 0, 0, 0.55)",
     zIndex: "99999",
     display: "flex",
     flexDirection: "column",
@@ -138,13 +154,18 @@ async function startAutomatedScrape() {
 
       // Open the course details modal
       link.click();
+      await sleep(200); // Small pacing delay to show the "click"
 
-      // Increased wait for AJAX and animations
-      await sleep(1500);
+      // Wait for the course details modal AND the specific course details content to be populated
+      const modal = await waitFor(() => {
+        const dialog = document.querySelector(".course-details-dialog") || 
+                       Array.from(document.querySelectorAll(".ui-dialog")).find(d => d.innerText.includes("Schedule Type"));
+        if (!dialog) return null;
 
-      // Target specifically the course details modal among the multiple .ui-dialog elements
-      const modal = document.querySelector(".course-details-dialog") || 
-                    Array.from(document.querySelectorAll(".ui-dialog")).find(d => d.innerText.includes("Schedule Type"));
+        // Ensure the content div is actually populated before returning the modal
+        const content = dialog.querySelector("#classDetailsContentDetailsDiv") || document.getElementById("classDetailsContentDetailsDiv");
+        return content ? dialog : null;
+      }, 5000);
 
       let courseData = {
         id: courseIdentifier
@@ -180,10 +201,11 @@ async function startAutomatedScrape() {
           const meetingTimesTab = modal.querySelector("#facultyMeetingTimes a") || document.querySelector("#facultyMeetingTimes a");
           if (meetingTimesTab) {
             meetingTimesTab.click();
-            // Wait for tab content to load
-            await sleep(1000);
+            await sleep(200); // Pacing delay
+            
+            // Wait for tab content (.meetingTimesContainer) to load
+            const meetingContainer = await waitFor(() => modal.querySelector(".meetingTimesContainer"), 3000);
 
-            const meetingContainer = modal.querySelector(".meetingTimesContainer");
             if (meetingContainer) {
               // Get Meeting Dates
               const datesDiv = meetingContainer.querySelector(".left .dates");
@@ -245,14 +267,15 @@ async function startAutomatedScrape() {
         const closeBtn = modal.querySelector(".ui-dialog-titlebar-close");
         if (closeBtn) {
           closeBtn.click();
-          await sleep(500); // Small pause for the modal clear
+          // Wait for modal to disappear or just a small pause for cleanup
+          await waitFor(() => !document.body.contains(modal), 2000);
         }
       }
 
       allCourseData.push(courseData);
     }
   } catch (error) {
-    console.error("Scraping error:", error);
+    // Silenced for production
   } finally {
     isScraping = false;
     hideOverlay();

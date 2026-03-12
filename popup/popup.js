@@ -107,6 +107,10 @@ document.addEventListener('DOMContentLoaded', async () => {
         statusDiv.textContent = `Synced ${status.created} events. ${status.failed.length} failed. First error: ${firstError}`;
       } else {
         statusDiv.textContent = `Successfully synced all ${status.created} events to your calendar!`;
+        const resultsContainer = document.getElementById('resultsContainer');
+        if (resultsContainer) {
+          resultsContainer.style.display = 'none';
+        }
       }
       chrome.storage.local.remove(['syncClicked']);
     }

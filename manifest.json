@@ -6,7 +6,8 @@
   "permissions": [
     "activeTab",
     "scripting",
-    "identity"
+    "identity",
+    "storage"
   ],
   "host_permissions": [
     "https://*.ucr.edu/*",

@@ -1,7 +1,16 @@
 document.addEventListener('DOMContentLoaded', async () => {
   const scrapeBtn = document.getElementById('scrapeBtn');
   const statusDiv = document.getElementById('status');
+  const confirmBtn = document.getElementById('confirmBtn');
   let currentCourses = [];
+
+  // Check if sync was already clicked previously
+  chrome.storage.local.get(['syncClicked'], (res) => {
+    if (res.syncClicked && confirmBtn) {
+      confirmBtn.disabled = true;
+      confirmBtn.textContent = 'Sync already requested...';
+    }
+  });
 
   // Helper to update UI based on status
   const updateUI = (isScraping, data = null, error = null) => {
@@ -18,7 +27,7 @@ document.addEventListener('DOMContentLoaded', async () => {
       if (scrapeBtn && scrapeBtn.parentNode) scrapeBtn.remove();
       renderCourses(data);
     } else if (error) {
-      statusDiv.textContent = 'Scraping failed: ' + error;
+      statusDiv.textContent = 'Scraping failed. Please try again.';
       if (scrapeBtn) {
         scrapeBtn.disabled = false;
         scrapeBtn.textContent = 'Scrape Courses';
@@ -81,169 +90,65 @@ document.addEventListener('DOMContentLoaded', async () => {
     document.getElementById('resultsContainer').style.display = 'block';
   }
 
-  // Helper to map days to RRULE format
-  const RRULE_DAY_MAP = {
-    sunday: 'SU', monday: 'MO', tuesday: 'TU', wednesday: 'WE',
-    thursday: 'TH', friday: 'FR', saturday: 'SA'
-  };
-
-  // Helper to find the first occurrence date based on days of the week
-  function findFirstOccurrence(startDateStr, targetDayNums) {
-    const cursor = new Date(startDateStr + 'T00:00:00');
-    for (let i = 0; i < 7; i++) {
-      if (targetDayNums.includes(cursor.getDay())) {
-        return cursor.toISOString().split('T')[0];
+  function updateSyncUI(status) {
+    if (status.isSyncing) {
+      if (confirmBtn) {
+        confirmBtn.disabled = true;
+        confirmBtn.textContent = 'Syncing...';
       }
-      cursor.setDate(cursor.getDate() + 1);
+      statusDiv.textContent = `Syncing... (${status.created}/${status.total})`;
+    } else if (status.done) {
+      if (confirmBtn && confirmBtn.parentNode) {
+        confirmBtn.remove();
+      }
+      if (status.failed && status.failed.length > 0) {
+        console.error("Some events failed to sync:", status.failed);
+        const firstError = status.failed[0].error || 'Unknown error';
+        statusDiv.textContent = `Synced ${status.created} events. ${status.failed.length} failed. First error: ${firstError}`;
+      } else {
+        statusDiv.textContent = `Successfully synced all ${status.created} events to your calendar!`;
+      }
+      chrome.storage.local.remove(['syncClicked']);
     }
-    return null;
-  }
-
-  // Parses 'MM/DD/YYYY - MM/DD/YYYY' into start and end dates formatted as YYYY-MM-DD
-  function parseQuarterDates(datesString) {
-    if (!datesString) return { start: null, end: null };
-    const parts = datesString.split('-').map(s => s.trim());
-    if (parts.length !== 2) return { start: null, end: null };
-
-    const formatPart = (dateStr) => {
-      const [m, d, y] = dateStr.split('/');
-      // Assume 20xx for year if it's 2 digits
-      const fullYear = y.length === 2 ? `20${y}` : y;
-      const formatted = `${fullYear}-${m.padStart(2, '0')}-${d.padStart(2, '0')}`;
-      console.log(`Debug: Parsed date part [${dateStr}] into [${formatted}]`);
-      return formatted;
-    };
-    const result = { start: formatPart(parts[0]), end: formatPart(parts[1]) };
-    console.log('Debug: Final parsed quarter dates:', result);
-    return result;
-  }
-
-  async function createRecurringEvents(token, courses) {
-    console.log('Debug: Starting createRecurringEvents with', courses.length, 'courses');
-    const TIMEZONE = 'America/Los_Angeles'; // Default timezone for UCR
-    const failures = [];
-    let created = 0;
-
-    for (const course of courses) {
-      // Parse the quarter date range ("MM/DD/YY - MM/DD/YY")
-      const { start: quarterStart, end: quarterEnd } = parseQuarterDates(course.dates);
-
-      // Build BYDAY string (e.g. "MO,WE,FR")
-      // Adding trim() to handle potential spaces like " Monday, Wednesday"
-      const byDay = (course.days || [])
-          .map(d => d.trim().toLowerCase())
-          .map(d => RRULE_DAY_MAP[d])
-          .filter(Boolean)
-          .join(',');
-
-      console.log(`Debug: Mapped days [${course.days}] to RRULE string [${byDay}]`);
-
-      // Skip if missing crucial data (like async courses with no times)
-      if (!byDay || !course.startTime || !course.endTime || !quarterStart || !quarterEnd) {
-        failures.push({ event: course, error: 'Missing required scheduling data (days, times, or dates)' });
-        continue;
-      }
-
-      // Format UNTIL date for RRULE (end of day in UTC: YYYYMMDDTHHMMSSZ)
-      // Removing hyphens from YYYY-MM-DD -> YYYYMMDD
-      const untilDate = quarterEnd.replace(/-/g, '') + 'T235959Z';
-
-      // Build recurrence rules
-      const recurrence = [`RRULE:FREQ=WEEKLY;BYDAY=${byDay};UNTIL=${untilDate}`];
-
-      // Map string day names to JS Date.getDay() numbers (0-6)
-      const patternDayNums = course.days.map(d => {
-        const map = { sunday: 0, monday: 1, tuesday: 2, wednesday: 3, thursday: 4, friday: 5, saturday: 6 };
-        return map[d.trim().toLowerCase()];
-      });
-
-      console.log(`Debug: Quarter window [${quarterStart} to ${quarterEnd}], Target day numbers: [${patternDayNums}]`);
-
-      // Find the actual first occurrence date
-      const startDate = findFirstOccurrence(quarterStart, patternDayNums);
-      console.log(`Debug: First occurrence for ${course.courseTitle} set to ${startDate}`);
-      
-      if (!startDate) {
-        failures.push({ event: course, error: 'Could not find first occurrence within the window' });
-        continue;
-      }
-
-      const calendarEvent = {
-        summary: course.modifiedTitle || course.courseTitle,
-        location: course.location || undefined,
-        description: course.courseType ? `Course Type: ${course.courseType}` : undefined,
-        start: {
-          dateTime: `${startDate}T${course.startTime}:00`,
-          timeZone: TIMEZONE,
-        },
-        end: {
-          dateTime: `${startDate}T${course.endTime}:00`,
-          timeZone: TIMEZONE,
-        },
-        recurrence: recurrence,
-      };
-
-      console.log(`Debug: Sending payload for ${course.courseTitle}:`, calendarEvent);
-
-      try {
-        const response = await fetch('https://www.googleapis.com/calendar/v3/calendars/primary/events', {
-          method: 'POST',
-          headers: {
-            'Authorization': `Bearer ${token}`,
-            'Content-Type': 'application/json'
-          },
-          body: JSON.stringify(calendarEvent)
-        });
-
-        if (!response.ok) {
-          const errorData = await response.json();
-          console.error('Google Calendar API Error:', errorData);
-          throw new Error(errorData.error ? errorData.error.message : `API request failed with status ${response.status}`);
-        }
-
-        created++;
-        statusDiv.textContent = `Syncing... (${created}/${courses.length})`;
-      } catch (err) {
-        failures.push({
-          event: course,
-          error: err.message,
-        });
-      }
-    }
-
-    return { created, failed: failures };
   }
 
   // Handle confirm button
-  document.getElementById('confirmBtn').addEventListener('click', () => {
-    console.log("Confirmed Data for Sync:", currentCourses);
-    statusDiv.textContent = `Authorizing with Google Calendar...`;
+  if (confirmBtn) {
+    confirmBtn.addEventListener('click', () => {
+      confirmBtn.disabled = true;
+      confirmBtn.textContent = 'Starting Sync...';
+      chrome.storage.local.set({ syncClicked: true });
 
-    // Request OAuth2 Token
-    chrome.identity.getAuthToken({ interactive: true }, async function (token) {
-      if (chrome.runtime.lastError || !token) {
-        console.error(chrome.runtime.lastError);
-        statusDiv.textContent = `Authorization failed: ${chrome.runtime.lastError ? chrome.runtime.lastError.message : 'Unknown error'}. Make sure your client_id is set in manifest.json.`;
-        return;
-      }
+      console.log("Starting sync via background script...");
+      statusDiv.textContent = `Authorizing and starting sync...`;
 
-      console.log("Successfully obtained OAuth token!", token);
-      statusDiv.textContent = `Authorization successful! Starting sync...`;
-
-      const { created, failed } = await createRecurringEvents(token, currentCourses);
-
-      if (failed.length > 0) {
-        console.error("Some events failed to sync:", failed);
-        const firstError = failed[0].error || 'Unknown error';
-        statusDiv.textContent = `Synced ${created} events. ${failed.length} failed. First error: ${firstError}`;
-      } else {
-        statusDiv.textContent = `Successfully synced all ${created} events to your calendar!`;
-      }
-      document.getElementById('confirmBtn').remove(); // remove button once done
+      chrome.runtime.sendMessage({ action: 'start_sync', courses: currentCourses }, (response) => {
+        if (chrome.runtime.lastError) {
+           console.error("Extension runtime error:", chrome.runtime.lastError);
+           statusDiv.textContent = `Error: Could not contact background script.`;
+           confirmBtn.disabled = false;
+           confirmBtn.textContent = 'Confirm & Sync to Calendar';
+           chrome.storage.local.remove(['syncClicked']);
+        } else if (response && response.error) {
+           console.error("Sync error:", response.error);
+           statusDiv.textContent = `Error: ${response.error}`;
+           confirmBtn.disabled = false;
+           confirmBtn.textContent = 'Confirm & Sync to Calendar';
+           chrome.storage.local.remove(['syncClicked']);
+        }
+      });
     });
+  }
+
+  // Check if a sync is already in progress on load
+  chrome.runtime.sendMessage({ action: 'get_sync_status' }, (status) => {
+    if (chrome.runtime.lastError) return; // Ignore if background isn't ready
+    if (status && (status.isSyncing || status.done)) {
+      updateSyncUI(status);
+    }
   });
 
-  // Check if a scrape is already in progress or results already exist on load
+  // Check if a scrape is already in progress
   const [tab] = await chrome.tabs.query({ active: true, currentWindow: true });
   if (tab && tab.id) {
     chrome.tabs.sendMessage(tab.id, { action: 'check_status' }, (response) => {
@@ -252,17 +157,26 @@ document.addEventListener('DOMContentLoaded', async () => {
     });
   }
 
-  // Listen for real-time updates from content script
+  // Listen for real-time updates from content and background scripts
   chrome.runtime.onMessage.addListener((request) => {
     if (request.action === 'scraping_started') {
       updateUI(true);
     } else if (request.action === 'scraping_finished') {
       updateUI(false, request.data, request.error);
+    } else if (request.action === 'sync_progress' || request.action === 'sync_finished') {
+      updateSyncUI(request.status);
     }
   });
 
   if (scrapeBtn) {
     scrapeBtn.addEventListener('click', async () => {
+      // Reset sync state on new scrape
+      chrome.storage.local.remove(['syncClicked']);
+      if (confirmBtn) {
+        confirmBtn.disabled = false;
+        confirmBtn.textContent = 'Confirm & Sync to Calendar';
+      }
+      
       updateUI(true);
 
       const [tab] = await chrome.tabs.query({ active: true, currentWindow: true });

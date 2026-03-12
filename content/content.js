@@ -28,10 +28,10 @@ chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
         chrome.runtime.sendMessage({ action: 'scraping_finished', success: true, data: results });
       } catch (error) {
         console.error("Scraping error:", error);
-        sendResponse({ success: false, error: error.message });
+        sendResponse({ success: false, error: 'An error occurred during scraping. Please try again.' });
 
         // Broadcast the error
-        chrome.runtime.sendMessage({ action: 'scraping_finished', success: false, error: error.message });
+        chrome.runtime.sendMessage({ action: 'scraping_finished', success: false, error: 'An error occurred during scraping. Please try again.' });
       }
     })();
     return true; // Keep channel open for async response
@@ -123,7 +123,9 @@ async function startAutomatedScrape() {
 
   try {
     const selector = ".section-details-link";
-    const courseLinks = Array.from(document.getElementById("scheduleCalView").querySelectorAll(selector));
+    const container = document.getElementById("scheduleCalView") || document.getElementById("scheduleListView") || document.querySelector(".registration-results-container") || document;
+    if (!container) throw new Error("Could not find course container on page.");
+    const courseLinks = Array.from(container.querySelectorAll(selector));
 
     console.log(`Starting scrape of ${courseLinks.length} potential courses...`);
 

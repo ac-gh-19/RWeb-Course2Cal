@@ -3,20 +3,43 @@ console.log("Course2Cal content script loaded!");
 
 const sleep = (ms) => new Promise(resolve => setTimeout(resolve, ms));
 
+let isScraping = false;
+let lastResults = null;
+
 // Listen for messages from the popup or background script
 chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
   if (request.action === 'scrape_data_attributes') {
+    // Prevent starting a multiple scrapes
+    if (isScraping) {
+      sendResponse({ success: false, error: 'Scraping already in progress' });
+      return;
+    }
+    
     // We make this an async IIFE to use 'await'
     (async () => {
       try {
+        // Broadcast that we've started
+        chrome.runtime.sendMessage({ action: 'scraping_started' });
+        
         const results = await startAutomatedScrape();
         sendResponse({ success: true, data: results });
+
+        // Broadcast that we've finished successfully
+        chrome.runtime.sendMessage({ action: 'scraping_finished', success: true, data: results });
       } catch (error) {
         console.error("Scraping error:", error);
         sendResponse({ success: false, error: error.message });
+
+        // Broadcast the error
+        chrome.runtime.sendMessage({ action: 'scraping_finished', success: false, error: error.message });
       }
     })();
     return true; // Keep channel open for async response
+  }
+  
+  if (request.action === 'check_status') {
+    sendResponse({ isScraping, data: lastResults });
+    return false;
   }
 });
 
@@ -93,6 +116,7 @@ function hideOverlay() {
 }
 
 async function startAutomatedScrape() {
+  isScraping = true;
   showOverlay();
   const allCourseData = [];
   const seen = new Set();
@@ -220,9 +244,11 @@ async function startAutomatedScrape() {
   } catch (error) {
     console.error("Scraping error:", error);
   } finally {
+    isScraping = false;
     hideOverlay();
   }
   
+  lastResults = allCourseData;
   console.log("Scrape complete!", allCourseData);
   return allCourseData;
 }

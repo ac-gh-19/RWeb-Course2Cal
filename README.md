@@ -1,5 +1,7 @@
 # Course2Cal for RWeb
 
+[![Watch the Demo](https://img.shields.io/badge/YouTube-Demo-red?style=for-the-badge&logo=youtube)](https://www.youtube.com/watch?v=ogcCqrS7VNQ)
+
 A Google Chrome extension designed for UCR students to easily sync their class schedule from RWeb to Google Calendar.
 
 ## Features

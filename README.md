@@ -37,6 +37,10 @@ If you are a developer looking to build or modify this extension:
 4. Click **"Load unpacked"** and select the project directory.
 5. **OAuth2 Configuration**: You must create a project in the [Google Cloud Console](https://console.cloud.google.com/), enable the Google Calendar API, and create an OAuth 2.0 Client ID for a Chrome App. Update the `client_id` in `manifest.json` with your own.
 
+## Privacy Policy
+
+See our [Privacy Policy](privacy_policy.md).
+
 ## Disclaimer
 
 This extension is a third-party tool and is not affiliated with, maintained, or endorsed by the University of California, Riverside (UCR). Use at your own risk.
